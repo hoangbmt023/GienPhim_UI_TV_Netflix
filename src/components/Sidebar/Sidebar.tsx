@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableHighlight, Image } from 'react-native';
+import { View, Text, TouchableHighlight, Image, findNodeHandle } from 'react-native';
 import { theme } from '../../constants/theme';
 import { styles } from './Sidebar.styles';
 import { useTVNavigation, navigationRef } from '../../context/NavigationContext';
@@ -13,9 +13,22 @@ const MENU_ITEMS = [
 
 const TouchableHighlightTV = TouchableHighlight as any;
 
+const TOP_GRADIENT = Array(20).fill(0).map((_, i) => {
+  // Gradient từ đen mờ (top) sang trong suốt (bottom)
+  const opacity = Math.pow(1 - (i / 19), 1.5) * 0.95;
+  return <View key={i} style={{ flex: 1, backgroundColor: `rgba(20,20,20,${opacity})` }} />;
+});
+
 export const Sidebar = ({ activeNodeRef }: { activeNodeRef?: React.MutableRefObject<any> }) => {
   const [focusedItem, setFocusedItem] = useState<string | null>(null);
-  const { currentRoute } = useTVNavigation();
+  const { currentRoute, heroBannerFocusNodeRef } = useTVNavigation();
+
+  const getHeroBannerNode = () => {
+    if (heroBannerFocusNodeRef?.current) {
+      return findNodeHandle(heroBannerFocusNodeRef.current);
+    }
+    return null;
+  };
 
   const getActiveItem = () => {
     switch (currentRoute) {
@@ -31,6 +44,10 @@ export const Sidebar = ({ activeNodeRef }: { activeNodeRef?: React.MutableRefObj
 
   return (
     <View style={styles.container}>
+      {/* Lớp gradient đen mờ đè lên mọi thứ cuộn bên dưới để chữ luôn dễ đọc */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 140, pointerEvents: 'none' }}>
+        <>{TOP_GRADIENT}</>
+      </View>
 
       {/* LEFT: GIENPHIM Logo */}
       <View style={styles.leftSection}>
@@ -66,6 +83,7 @@ export const Sidebar = ({ activeNodeRef }: { activeNodeRef?: React.MutableRefObj
               ]}
               underlayColor="transparent"
               activeOpacity={1}
+              nextFocusDown={getHeroBannerNode() ?? undefined}
             >
               <Text style={[
                 styles.label,

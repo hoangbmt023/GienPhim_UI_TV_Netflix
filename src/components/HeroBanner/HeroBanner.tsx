@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, TouchableHighlight, Animated, Image, findNodeHandle, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableHighlight, Animated, Image, findNodeHandle, StyleSheet, FlatList } from 'react-native';
 import { imgUrl, getMovieImages, getMovieDetail } from '../../services/ophimApi';
 import { styles } from './HeroBanner.styles';
+import { useTVNavigation } from '../../context/NavigationContext';
 
 interface HeroBannerProps {
   movies: any[];
@@ -16,6 +17,7 @@ const stripHtml = (html = '') => html.replace(/<[^>]*>/g, '').trim();
 const TouchableHighlightTV = TouchableHighlight as any;
 
 export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, nextFocusUpNode, nextFocusDownNode }: HeroBannerProps) => {
+  const { heroBannerFocusNodeRef } = useTVNavigation();
   const [activeIdx, setActiveIdx] = useState(0);
   const [focusedBtn, setFocusedBtn] = useState<string | null>(null);
   const [focusedThumb, setFocusedThumb] = useState<number | null>(null);
@@ -30,7 +32,7 @@ export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, ne
   const lastInteractionRef = useRef(Date.now());
   const hasInteractedRef = useRef(false);
 
-  const thumbScrollRef = useRef<ScrollView>(null);
+  const flatListRef = useRef<FlatList>(null);
 
   // Only take 8 movies for the hero banner strip
   const items = useMemo(() => movies.slice(0, 8), [movies]);
@@ -46,6 +48,13 @@ export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, ne
     hasInteractedRef.current = true;
     lastInteractionRef.current = Date.now();
   };
+
+  // Set default focus node for Sidebar to navigate back to
+  useEffect(() => {
+    if (heroBannerFocusNodeRef && !heroBannerFocusNodeRef.current && playBtnRef.current) {
+      heroBannerFocusNodeRef.current = playBtnRef.current;
+    }
+  }, [items]);
 
   // Fetch full details of the hero movies
   useEffect(() => {
@@ -121,18 +130,12 @@ export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, ne
 
   // Align focused thumbnail
   useEffect(() => {
-    if (focusedThumb !== null && focusedThumb !== activeIdx) {
-      thumbRefs.current[activeIdx]?.focus();
+    if (flatListRef.current) {
+      try {
+        flatListRef.current.scrollToIndex({ index: activeIdx, animated: true, viewPosition: 0.5 });
+      } catch (e) {}
     }
-    // Scroll the horizontal thumbnail list to ensure the active item is visible
-    if (thumbScrollRef.current) {
-      // 84 is width (76) + marginHorizontal (4*2)
-      thumbScrollRef.current.scrollTo({
-        x: Math.max(0, activeIdx * 84 - 84),
-        animated: true,
-      });
-    }
-  }, [activeIdx, focusedThumb]);
+  }, [activeIdx]);
 
   if (loading || !movies || movies.length === 0) {
     return (
@@ -273,6 +276,8 @@ export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, ne
                 setFocusedBtn('play');
                 interact();
                 onFocusBanner?.();
+                // Ghi nhớ nút cuối cùng được focus để Sidebar biết nơi xuống
+                if (heroBannerFocusNodeRef) heroBannerFocusNodeRef.current = playBtnRef.current;
               }}
               onBlur={() => setFocusedBtn(null)}
               onPress={() => { }}
@@ -304,6 +309,8 @@ export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, ne
                 setFocusedBtn('info');
                 interact();
                 onFocusBanner?.();
+                // Ghi nhớ nút cuối cùng được focus để Sidebar biết nơi xuống
+                if (heroBannerFocusNodeRef) heroBannerFocusNodeRef.current = infoBtnRef.current;
               }}
               onBlur={() => setFocusedBtn(null)}
               onPress={() => { }}
@@ -321,52 +328,80 @@ export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, ne
         </View>
 
         <View style={styles.rightColumn}>
-          <ScrollView
-            ref={thumbScrollRef}
+          <FlatList
+            ref={flatListRef}
             horizontal
+            data={items}
+            keyExtractor={(item, index) => item._id || index.toString()}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.thumbsContainer}
-          // Màn hình hiển thị tầm 3.5 cái, bằng cách giới hạn width của rightColumn
-          >
-            {items.map((m, i) => {
+            removeClippedSubviews={false}  // T\u1eaft clip \u0111\u1ec3 thumbRefs lu\u00f4n s\u1eb5n s\u00e0ng cho wrap-around navigation
+            windowSize={8}
+            initialNumToRender={8}          // Render h\u1ebft ng\u01b0\u1eddi v\u00ec ch\u1ec9 t\u1ed1i \u0111a 8 items
+            maxToRenderPerBatch={8}
+            renderItem={({ item: m, index: i }) => {
               const mDetail = movieDetails[m.slug] || m;
-              // Thumbnail strip cũng tuân theo quy tắc ưu tiên poster_url -> thumb_url
               const thumbUrl = imgUrl(mDetail.poster_url || mDetail.thumb_url || m.thumb_url);
+
               return (
-                <TouchableHighlightTV
-                  key={m._id || i}
-                  ref={(el: any) => { thumbRefs.current[i] = el; }}
-                  onFocus={() => {
+                <HeroThumb
+                  item={m}
+                  index={i}
+                  thumbUrl={thumbUrl}
+                  isActive={i === activeIdx}
+                  isFocused={focusedThumb === i}
+                  thumbRefCallback={(el: any) => { thumbRefs.current[i] = el; }}
+                  onFocusThumb={() => {
                     setFocusedThumb(i);
                     setActiveIdx(i);
                     interact();
                     onFocusBanner?.();
+
+                    if (flatListRef.current) {
+                      try {
+                        flatListRef.current.scrollToIndex({ index: i, animated: true, viewPosition: 0.5 });
+                      } catch (e) {}
+                    }
                   }}
-                  onBlur={() => setFocusedThumb(null)}
-                  onPress={() => { }}
-                  style={[
-                    styles.thumbWrap,
-                    i === activeIdx && styles.thumbActive,
-                    focusedThumb === i && styles.thumbWrapFocused
-                  ]}
-                  underlayColor="transparent"
-                  activeOpacity={1}
-                  nextFocusUp={nextFocusUpNode?.current ? findNodeHandle(nextFocusUpNode.current) : undefined}
-                  nextFocusDown={getPlayBtnNode()}
-                  nextFocusLeft={findNodeHandle(thumbRefs.current[i === 0 ? items.length - 1 : i - 1])}
-                  nextFocusRight={findNodeHandle(thumbRefs.current[i === items.length - 1 ? 0 : i + 1])}
-                >
-                  <Image
-                    source={{ uri: thumbUrl }}
-                    style={{ width: '100%', height: '100%' }}
-                    resizeMode="cover"
-                  />
-                </TouchableHighlightTV>
+                  onBlurThumb={() => setFocusedThumb(null)}
+                  nextFocusUpNode={nextFocusUpNode?.current ? findNodeHandle(nextFocusUpNode.current) : undefined}
+                  nextFocusDownNode={getPlayBtnNode()}
+                  getPrevThumbNode={() => findNodeHandle(thumbRefs.current[i === 0 ? items.length - 1 : i - 1])}
+                  getNextThumbNode={() => findNodeHandle(thumbRefs.current[i === items.length - 1 ? 0 : i + 1])}
+                />
               );
-            })}
-          </ScrollView>
+            }}
+          />
         </View>
       </View>
     </View>
   );
 };
+
+const HeroThumb = React.memo(({ item, index, thumbUrl, isActive, isFocused, thumbRefCallback, onFocusThumb, onBlurThumb, nextFocusUpNode, nextFocusDownNode, getPrevThumbNode, getNextThumbNode }: any) => {
+  return (
+    <TouchableHighlightTV
+      ref={thumbRefCallback}
+      onFocus={onFocusThumb}
+      onBlur={onBlurThumb}
+      onPress={() => { }}
+      style={[
+        styles.thumbWrap,
+        isActive && styles.thumbActive,
+        isFocused && styles.thumbWrapFocused
+      ]}
+      underlayColor="transparent"
+      activeOpacity={1}
+      nextFocusUp={nextFocusUpNode}          // Lên Sidebar
+      nextFocusDown={nextFocusDownNode}       // Xuống nút PHÁT
+      nextFocusLeft={getPrevThumbNode?.()}    // Thumb trước
+      nextFocusRight={getNextThumbNode?.()}   // Thumb sau
+    >
+      <Image
+        source={{ uri: thumbUrl }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode="cover"
+      />
+    </TouchableHighlightTV>
+  );
+});
