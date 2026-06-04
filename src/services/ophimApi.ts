@@ -20,12 +20,10 @@ const get = async (path: string) => {
 };
 
 const qs = (params: any = {}) => {
-  const p = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== '') p.set(k, String(v));
-  });
-  const str = p.toString();
-  return str ? `?${str}` : '';
+  const entries = Object.entries(params)
+    .filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  return entries.length > 0 ? `?${entries.join('&')}` : '';
 };
 
 export const getHome = () => get('/v1/api/home');

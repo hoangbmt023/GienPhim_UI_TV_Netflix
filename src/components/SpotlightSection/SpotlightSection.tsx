@@ -1,27 +1,40 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, ScrollView, TouchableHighlight, Image, StyleSheet, LayoutAnimation, UIManager, Platform } from 'react-native';
+import { View, Text, TouchableHighlight, Image, StyleSheet, LayoutAnimation, Platform, useWindowDimensions, Animated, FlatList, TVFocusGuideView } from 'react-native';
 import { theme } from '../../constants/theme';
 import { imgUrl, getMovieDetail, getMovieImages } from '../../services/ophimApi';
 import { styles as rowStyles } from '../MovieRow/MovieRow.styles';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import { styles } from './SpotlightSection.styles';
 
 interface SpotlightSectionProps {
   title: string;
   items: any[];
   loading?: boolean;
-  firstItemRef?: React.MutableRefObject<any> | null;
+  firstItemRef?: React.RefObject<any> | null;
   onFocusRow?: () => void;
+  onLayout?: (e: any) => void;
 }
 
 const stripHtml = (html = '') => html.replace(/<[^>]*>/g, '').trim();
 
-export const SpotlightSection = ({ title, items, loading, firstItemRef, onFocusRow }: SpotlightSectionProps) => {
+export const SpotlightSection = ({ title, items, loading, firstItemRef, onFocusRow, onLayout }: SpotlightSectionProps) => {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [movieDetails, setMovieDetails] = useState<Record<string, any>>({});
   const [movieImages, setMovieImages] = useState<Record<string, any>>({});
+
+  const flatListRef = useRef<FlatList>(null);
+
+  const handleFocusItem = (index: number, item: any) => {
+    setActiveItem(item);
+    onFocusRow?.();
+
+    if (flatListRef.current && items.length > 0) {
+      try {
+        flatListRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+      } catch (e) {
+        // Ignored
+      }
+    }
+  };
 
   // Tương tự HeroBanner: Fetch chi tiết phim để lấy category, mô tả, nội dung...
   React.useEffect(() => {
@@ -67,9 +80,21 @@ export const SpotlightSection = ({ title, items, loading, firstItemRef, onFocusR
 
   if (loading) {
     return (
-      <View style={rowStyles.container}>
+      <View style={[rowStyles.container, { marginBottom: theme.spacing.xxl * 2, paddingTop: 40 }]} onLayout={onLayout}>
         <Text style={rowStyles.rowTitle}>{title}</Text>
-        <Text style={{ color: theme.colors.textMuted, marginLeft: theme.spacing.xxl }}>Đang tải...</Text>
+        <View style={[rowStyles.row, { flexDirection: 'row', paddingRight: 80, overflow: 'hidden' }]}>
+          {/* Sinh ra 6 thẻ giả lập để làm khung xương */}
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <View
+              key={i}
+              style={[
+                styles.cardContainer,
+                styles.skeletonBox,
+                { width: i === 1 ? 426 : 160, height: 240, marginRight: 16 }
+              ]}
+            />
+          ))}
+        </View>
       </View>
     );
   }
@@ -77,33 +102,37 @@ export const SpotlightSection = ({ title, items, loading, firstItemRef, onFocusR
   if (!items || items.length === 0) return null;
 
   return (
-    <View style={[rowStyles.container, { marginBottom: theme.spacing.xxl * 2, paddingTop: 40 }]}>
+    <View style={[rowStyles.container, { marginBottom: theme.spacing.xxl * 2, paddingTop: 40 }]} onLayout={onLayout}>
       <Text style={rowStyles.rowTitle}>{title}</Text>
 
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={rowStyles.row}
-        contentContainerStyle={{ paddingRight: 80 }}
-      >
-        {items.map((item, index) => {
-          const detail = movieDetails[item.slug] || item;
-          const images = movieImages[item.slug] || {};
+      <TVFocusGuideView autoFocus style={{ overflow: 'visible' }}>
+        <FlatList
+          ref={flatListRef}
+          horizontal
+          data={items}
+          keyExtractor={(item, index) => item._id || index.toString()}
+          renderItem={({ item, index }) => {
+            const detail = movieDetails[item.slug] || item;
+            const images = movieImages[item.slug] || {};
 
-          return (
-            <SpotlightItem
-              key={item._id || index}
-              item={detail}
-              images={images}
-              itemRef={index === 0 ? firstItemRef : null}
-              onFocusChange={(focusedItem) => {
-                setActiveItem(focusedItem);
-                onFocusRow?.();
-              }}
-            />
-          );
-        })}
-      </ScrollView>
+            return (
+              <SpotlightItem
+                item={detail}
+                images={images}
+                itemRef={index === 0 ? firstItemRef : null}
+                onFocusChange={(focusedItem) => handleFocusItem(index, focusedItem)}
+              />
+            );
+          }}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingLeft: 80, paddingRight: 80 }}
+          style={{ overflow: 'visible' }}
+          removeClippedSubviews={true}
+          windowSize={5}
+          initialNumToRender={5}
+          maxToRenderPerBatch={3}
+        />
+      </TVFocusGuideView>
 
       {/* Spotlight Info Pane */}
       {activeItem && (
@@ -120,7 +149,13 @@ export const SpotlightSection = ({ title, items, loading, firstItemRef, onFocusR
   );
 };
 
-const SpotlightItem = ({ item, images, itemRef, onFocusChange }: { item: any, images: any, itemRef?: any, onFocusChange: (item: any) => void }) => {
+// Khai báo mảng gradient tĩnh bên ngoài component để tránh lỗi "Expected static flag" của React 18 / Fabric
+const GRADIENT_LAYERS = Array.from({ length: 20 }).map((_, i) => {
+  const opacity = Math.pow(i / 19, 2) * 0.9;
+  return <View key={i} style={{ flex: 1, backgroundColor: `rgba(0,0,0,${opacity})` }} />;
+});
+
+const SpotlightItem = React.memo(({ item, images, itemRef, onFocusChange }: { item: any, images: any, itemRef?: any, onFocusChange: (item: any) => void }) => {
   const [focused, setFocused] = useState(false);
 
   const handleFocus = () => {
@@ -141,16 +176,8 @@ const SpotlightItem = ({ item, images, itemRef, onFocusChange }: { item: any, im
   const width = focused ? 426 : 160;
   const height = 240;
 
-  // Lấy ảnh hiển thị
+  // Lấy ảnh hiển thị (Chỉ dùng poster theo yêu cầu để tránh lag đổi ảnh)
   const posterSrc = imgUrl(item.poster_url || item.thumb_url);
-  const bannerSrc = images.backdrop || imgUrl(item.thumb_url);
-
-  // Gradient mượt mà với 20 lớp (layer)
-  const gradientLayers = Array.from({ length: 20 }).map((_, i) => {
-    // Hàm mũ 2 tạo đường cong gradient đẹp như CSS ease
-    const opacity = Math.pow(i / 19, 2) * 0.9;
-    return <View key={i} style={{ flex: 1, backgroundColor: `rgba(0,0,0,${opacity})` }} />;
-  });
 
   return (
     <TouchableHighlight
@@ -167,28 +194,19 @@ const SpotlightItem = ({ item, images, itemRef, onFocusChange }: { item: any, im
         { width, height },
         focused && styles.cardFocused
       ]}>
-        {/* Render Poster nằm dưới (Luôn hiện) */}
+        {/* Render Poster (Dùng duy nhất 1 ảnh để LayoutAnimation mượt mà, không bị lag đổi ảnh) */}
         <Image
           source={{ uri: posterSrc }}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
 
-        {/* Render Banner nằm trên, chỉ hiện khi focused */}
-        {focused && (
-          <Image
-            source={{ uri: bannerSrc }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-        )}
-
         {/* Gradient mờ mượt mà */}
         {focused && (
           <View style={StyleSheet.absoluteFill}>
             <View style={{ flex: 1 }} />
             <View style={{ height: 100 }}>
-              {gradientLayers}
+              <>{GRADIENT_LAYERS}</>
             </View>
           </View>
         )}
@@ -209,53 +227,4 @@ const SpotlightItem = ({ item, images, itemRef, onFocusChange }: { item: any, im
       </View>
     </TouchableHighlight>
   );
-}
-
-const styles = StyleSheet.create({
-  cardContainer: {
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: 'transparent',
-    backgroundColor: '#333',
-  },
-  cardFocused: {
-    borderColor: '#fff',
-  },
-  cardOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    justifyContent: 'flex-end',
-    padding: 16,
-    paddingBottom: 12,
-    backgroundColor: 'transparent', // Đã chuyển sang dùng Gradient giả lập ở trên
-  },
-  cardTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: '900', // Đậm hơn
-    letterSpacing: -0.5,
-    textShadowColor: 'rgba(0,0,0,1)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 5,
-  },
-  infoPane: {
-    marginTop: theme.spacing.xl,
-    paddingHorizontal: 80, // Bằng đúng marginLeft của Title và Row để canh lề chuẩn
-    maxWidth: '75%', // Rộng ra tí để chữ đỡ bị rớt dòng nhiều
-  },
-  infoMeta: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  infoDesc: {
-    color: '#ccc',
-    fontSize: 18,
-    lineHeight: 28,
-  }
 });

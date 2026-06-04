@@ -16,6 +16,7 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     marginTop: 0,
+    overflow: 'visible',
   },
   leftSection: {
     flex: 1,
