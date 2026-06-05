@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TouchableHighlight, Image, StyleSheet, LayoutAnimation, Platform, useWindowDimensions, Animated, FlatList, TVFocusGuideView } from 'react-native';
+import { View, Text, TouchableHighlight, Image, StyleSheet, LayoutAnimation, Platform, useWindowDimensions, Animated, FlatList, TVFocusGuideView, findNodeHandle } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../constants/theme';
 import { imgUrl, getMovieDetail, getMovieImages } from '../../services/ophimApi';
 import { styles as rowStyles } from '../MovieRow/MovieRow.styles';
@@ -9,14 +10,14 @@ interface SpotlightSectionProps {
   title: string;
   items: any[];
   loading?: boolean;
-  firstItemRef?: React.RefObject<any> | null;
+  nextFocusUpNode?: React.RefObject<any> | null;
   onFocusRow?: () => void;
   onLayout?: (e: any) => void;
 }
 
 const stripHtml = (html = '') => html.replace(/<[^>]*>/g, '').trim();
 
-export const SpotlightSection = ({ title, items, loading, firstItemRef, onFocusRow, onLayout }: SpotlightSectionProps) => {
+export const SpotlightSection = ({ title, items, loading, nextFocusUpNode, onFocusRow, onLayout }: SpotlightSectionProps) => {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [movieDetails, setMovieDetails] = useState<Record<string, any>>({});
   const [movieImages, setMovieImages] = useState<Record<string, any>>({});
@@ -119,7 +120,7 @@ export const SpotlightSection = ({ title, items, loading, firstItemRef, onFocusR
               <SpotlightItem
                 item={detail}
                 images={images}
-                itemRef={index === 0 ? firstItemRef : null}
+                nextFocusUpNode={nextFocusUpNode}
                 onFocusChange={(focusedItem) => handleFocusItem(index, focusedItem)}
               />
             );
@@ -155,8 +156,11 @@ const GRADIENT_LAYERS = Array.from({ length: 20 }).map((_, i) => {
   return <View key={i} style={{ flex: 1, backgroundColor: `rgba(0,0,0,${opacity})` }} />;
 });
 
-const SpotlightItem = React.memo(({ item, images, itemRef, onFocusChange }: { item: any, images: any, itemRef?: any, onFocusChange: (item: any) => void }) => {
+const TouchableHighlightTV = TouchableHighlight as any;
+
+const SpotlightItem = React.memo(({ item, images, itemRef, nextFocusUpNode, onFocusChange }: { item: any, images: any, itemRef?: any, nextFocusUpNode?: React.RefObject<any> | null, onFocusChange: (item: any) => void }) => {
   const [focused, setFocused] = useState(false);
+  const navigation = useNavigation<any>();
 
   const handleFocus = () => {
     // Kích hoạt LayoutAnimation tự động animate chiều rộng (width)
@@ -180,14 +184,15 @@ const SpotlightItem = React.memo(({ item, images, itemRef, onFocusChange }: { it
   const posterSrc = imgUrl(item.poster_url || item.thumb_url);
 
   return (
-    <TouchableHighlight
+    <TouchableHighlightTV
       ref={itemRef}
       onFocus={handleFocus}
       onBlur={handleBlur}
-      onPress={() => { }}
+      onPress={() => navigation.navigate('MovieDetail', { slug: item.slug })}
       activeOpacity={1}
       underlayColor="transparent"
       style={{ marginRight: 16, borderRadius: 8 }}
+      nextFocusUp={nextFocusUpNode?.current ? findNodeHandle(nextFocusUpNode.current) : undefined}
     >
       <View style={[
         styles.cardContainer,
@@ -225,6 +230,6 @@ const SpotlightItem = React.memo(({ item, images, itemRef, onFocusChange }: { it
           </View>
         )}
       </View>
-    </TouchableHighlight>
+    </TouchableHighlightTV>
   );
 });

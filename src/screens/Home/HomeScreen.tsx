@@ -16,8 +16,7 @@ export const HomeScreen = () => {
   const { height } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollYRef = useRef(0);
-  const { activeSidebarNodeRef } = useTVNavigation();
-  const firstSpotlightNodeRef = useRef<any>(null);
+  const { activeSidebarNodeRef, heroBannerFocusNodeRef } = useTVNavigation();
 
   const [heroMovies, setHeroMovies] = useState([]);
   const [newMovies, setNewMovies] = useState([]);
@@ -162,7 +161,6 @@ export const HomeScreen = () => {
               containerHeight={height}
               onFocusBanner={handleScrollToTop}
               nextFocusUpNode={activeSidebarNodeRef}
-              nextFocusDownNode={firstSpotlightNodeRef}
             />
           </TVFocusGuideView>
 
@@ -170,7 +168,7 @@ export const HomeScreen = () => {
             title="Phim chiếu rạp mới nhất"
             items={theaterMovies}
             loading={loading.theater}
-            firstItemRef={firstSpotlightNodeRef}
+            nextFocusUpNode={heroBannerFocusNodeRef}
             onLayout={(e) => rowYPositions.current['spotlight'] = e.nativeEvent.layout.y}
             onFocusRow={() => handleFocusRow('spotlight')}
           />

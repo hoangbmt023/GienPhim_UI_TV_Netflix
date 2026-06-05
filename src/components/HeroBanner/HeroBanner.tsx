@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, TouchableHighlight, Animated, Image, findNodeHandle, StyleSheet, FlatList } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { imgUrl, getMovieImages, getMovieDetail } from '../../services/ophimApi';
 import { styles } from './HeroBanner.styles';
 import { useTVNavigation } from '../../context/NavigationContext';
@@ -18,6 +19,7 @@ const TouchableHighlightTV = TouchableHighlight as any;
 
 export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, nextFocusUpNode, nextFocusDownNode }: HeroBannerProps) => {
   const { heroBannerFocusNodeRef } = useTVNavigation();
+  const navigation = useNavigation<any>();
   const [activeIdx, setActiveIdx] = useState(0);
   const [focusedBtn, setFocusedBtn] = useState<string | null>(null);
   const [focusedThumb, setFocusedThumb] = useState<number | null>(null);
@@ -313,7 +315,7 @@ export const HeroBanner = ({ movies, loading, containerHeight, onFocusBanner, ne
                 if (heroBannerFocusNodeRef) heroBannerFocusNodeRef.current = infoBtnRef.current;
               }}
               onBlur={() => setFocusedBtn(null)}
-              onPress={() => { }}
+              onPress={() => navigation.navigate('MovieDetail', { slug: detail.slug })}
               activeOpacity={1}
               nextFocusUp={getThumbNode(activeIdx)}
               nextFocusDown={nextFocusDownNode?.current ? findNodeHandle(nextFocusDownNode.current) : undefined}

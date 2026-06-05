@@ -4,6 +4,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { HomeScreen } from './src/screens/Home/HomeScreen';
+import { MovieDetailScreen } from './src/screens/MovieDetail/MovieDetailScreen';
 import { Sidebar } from './src/components/Sidebar/Sidebar';
 import { TVNavigationProvider, useTVNavigation, navigationRef } from './src/context/NavigationContext';
 
@@ -21,6 +22,7 @@ const TVLayout = () => {
           <Stack.Screen name="Movies" component={HomeScreen} />
           <Stack.Screen name="Series" component={HomeScreen} />
           <Stack.Screen name="Anime" component={HomeScreen} />
+          <Stack.Screen name="MovieDetail" component={MovieDetailScreen} />
         </Stack.Navigator>
       </View>
     </View>

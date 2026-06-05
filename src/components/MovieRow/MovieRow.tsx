@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TouchableHighlight, Image, Animated, useWindowDimensions, StyleSheet, FlatList, TVFocusGuideView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../constants/theme';
 import { imgUrl } from '../../services/ophimApi';
 import { styles } from './MovieRow.styles';
@@ -89,6 +90,7 @@ const STROKE_OFFSETS: [number, number][] = [
 
 const MovieCard = React.memo(({ item, index, isTop10, onFocusChange }: { item: any, index: number, isTop10?: boolean, onFocusChange: () => void }) => {
   const [focused, setFocused] = useState(false);
+  const navigation = useNavigation<any>();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handleFocus = () => {
@@ -116,7 +118,7 @@ const MovieCard = React.memo(({ item, index, isTop10, onFocusChange }: { item: a
       <TouchableHighlight
         onFocus={handleFocus}
         onBlur={handleBlur}
-        onPress={() => console.log('Press movie', item.name)}
+        onPress={() => navigation.navigate('MovieDetail', { slug: item.slug })}
         activeOpacity={1}
         underlayColor="transparent"
         style={{ marginRight: theme.spacing.m }}

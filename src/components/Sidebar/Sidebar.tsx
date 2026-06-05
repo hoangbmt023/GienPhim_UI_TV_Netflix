@@ -4,6 +4,8 @@ import { theme } from '../../constants/theme';
 import { styles } from './Sidebar.styles';
 import { useTVNavigation, navigationRef } from '../../context/NavigationContext';
 
+let _lastSidebarItem = 'home';
+
 const MENU_ITEMS = [
   { id: 'home', label: 'Trang chủ' },
   { id: 'movies', label: 'Phim lẻ' },
@@ -30,17 +32,24 @@ export const Sidebar = ({ activeNodeRef }: { activeNodeRef?: React.MutableRefObj
     return null;
   };
 
+  // Module-level variable to keep track of the last active main menu item
+  // so that navigating to MovieDetail doesn't reset the active state to 'home'.
   const getActiveItem = () => {
+    if (currentRoute === 'MovieDetail') return null; // NOTHING LIT!
     switch (currentRoute) {
       case 'Home': return 'home';
       case 'Movies': return 'movies';
       case 'Series': return 'series';
       case 'Anime': return 'animation';
-      default: return 'home';
+      default: 
+        return _lastSidebarItem;
     }
   };
 
   const activeItem = getActiveItem();
+  if (activeItem && ['home', 'movies', 'series', 'animation'].includes(activeItem)) {
+    _lastSidebarItem = activeItem;
+  }
 
   return (
     <View style={styles.container}>
