@@ -3,8 +3,11 @@ import ENV from '../config/env.config';
 export const BASE_URL = ENV.OPHIM_BASE_URL;
 export const CDN_IMAGE = ENV.OPHIM_CDN_IMAGE;
 
-export const imgUrl = (filename: string) =>
-  filename ? `${CDN_IMAGE}/${filename}` : '/placeholder.jpg';
+export const imgUrl = (filename: string) => {
+  if (!filename) return '/placeholder.jpg';
+  if (filename.startsWith('http')) return filename;
+  return `${CDN_IMAGE}/${filename}`;
+};
 
 export const parseItems = (r: any) => {
   const d = r?.data;
@@ -38,6 +41,18 @@ export const getByCountry = (slug: string, opts = {}) => {
   return get(`/v1/api/quoc-gia/${slug}${slug.includes('?') ? q.replace('?', '&') : q}`);
 };
 
+export const getByCategory = (slug: string, opts = {}) => {
+  const q = qs({ page: 1, ...opts });
+  return get(`/v1/api/the-loai/${slug}${slug.includes('?') ? q.replace('?', '&') : q}`);
+};
+
+export const searchMovies = (keyword: string, page = 1, limit = 24, opts = {}) =>
+  get(`/v1/api/tim-kiem${qs({ keyword, page, limit, ...opts })}`);
+
+export const getMovieKeywords = (slug: string) => get(`/v1/api/phim/${slug}/keywords`);
+
 export const getMovieImages = (slug: string) => get(`/v1/api/phim/${slug}/images`);
 
 export const getMovieDetail = (slug: string) => get(`/v1/api/phim/${slug}`);
+
+export const getMoviePeoples = (slug: string) => get(`/v1/api/phim/${slug}/peoples`);
