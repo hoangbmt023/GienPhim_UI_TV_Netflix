@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
-import { View, Image, ScrollView, TouchableHighlight, Text, TVFocusGuideView } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Image, ScrollView, TouchableHighlight, Text, TVFocusGuideView, findNodeHandle } from 'react-native';
 import { styles } from './MovieDetailGallery.styles';
 
 export const MovieDetailGallery = ({ images, onFocusContent, onImagePress, nextFocusUpNode }: { images: string[], onFocusContent?: () => void, onImagePress?: (uri: string) => void, nextFocusUpNode?: number | null }) => {
+  const itemRefs = useRef<any[]>([]);
+  const [itemNodes, setItemNodes] = useState<number[]>([]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      setItemNodes(itemRefs.current.map(el => findNodeHandle(el)).filter(n => n) as number[]);
+    }, 100);
+  }, [images]);
 
   if (!images || images.length === 0) {
     return (
@@ -20,7 +28,16 @@ export const MovieDetailGallery = ({ images, onFocusContent, onImagePress, nextF
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 15 }}>
         {images.map((item, index) => (
-          <GalleryItem key={index} uri={item} onPress={() => { if(onImagePress) onImagePress(item); }} onFocus={onFocusContent} nextFocusUp={nextFocusUpNode} />
+          <GalleryItem 
+            key={index} 
+            innerRef={(el: any) => itemRefs.current[index] = el}
+            uri={item} 
+            onPress={() => { if(onImagePress) onImagePress(item); }} 
+            onFocus={onFocusContent} 
+            nextFocusUp={nextFocusUpNode} 
+            nextFocusLeft={index === 0 ? itemNodes[images.length - 1] : undefined}
+            nextFocusRight={index === images.length - 1 ? itemNodes[0] : undefined}
+          />
         ))}
       </ScrollView>
 
@@ -29,11 +46,14 @@ export const MovieDetailGallery = ({ images, onFocusContent, onImagePress, nextF
   );
 };
 
-const GalleryItem = ({ uri, onPress, onFocus, nextFocusUp }: { uri: string, onPress: () => void, onFocus?: () => void, nextFocusUp?: number | null }) => {
+const GalleryItem = ({ uri, onPress, onFocus, nextFocusUp, nextFocusLeft, nextFocusRight, innerRef }: { uri: string, onPress: () => void, onFocus?: () => void, nextFocusUp?: number | null, nextFocusLeft?: number | null, nextFocusRight?: number | null, innerRef?: any }) => {
   const [focused, setFocused] = useState(false);
   
   return (
     <TouchableHighlight
+      ref={innerRef}
+      nextFocusLeft={nextFocusLeft}
+      nextFocusRight={nextFocusRight}
       nextFocusUp={nextFocusUp}
       onFocus={() => {
         setFocused(true);

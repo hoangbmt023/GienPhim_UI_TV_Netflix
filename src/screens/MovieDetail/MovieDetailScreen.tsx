@@ -10,6 +10,7 @@ import { MovieDetailInfo } from '../../components/MovieDetail/MovieDetailInfo/Mo
 import { MovieDetailCast } from '../../components/MovieDetail/MovieDetailCast/MovieDetailCast';
 import { MovieDetailGallery } from '../../components/MovieDetail/MovieDetailGallery/MovieDetailGallery';
 import { MovieDetailTrailer } from '../../components/MovieDetail/MovieDetailTrailer/MovieDetailTrailer';
+import { EpisodeSelectionUI } from '../../components/MovieDetail/EpisodeSelectionUI/EpisodeSelectionUI';
 
 const stripHtml = (html = '') => html.replace(/<[^>]*>/g, '').trim();
 
@@ -18,6 +19,7 @@ export const MovieDetailScreen = () => {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { slug } = route.params || {};
+  const { activeSidebarNodeRef, heroBannerFocusNodeRef } = useTVNavigation();
 
   const [movie, setMovie] = useState<any>(null);
   const [cast, setCast] = useState<any[]>([]);
@@ -30,6 +32,7 @@ export const MovieDetailScreen = () => {
   const [showEpisodes, setShowEpisodes] = useState(false);
   const [showDescModal, setShowDescModal] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
+  const [activeTabNodeHandle, setActiveTabNodeHandle] = useState<number | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const playBtnRef = useRef<any>(null);
@@ -37,8 +40,12 @@ export const MovieDetailScreen = () => {
   const activeTabRef = useRef<any>(null);
   const episodesBtnRef = useRef<any>(null);
   const saveBtnRef = useRef<any>(null);
+  const lastFocusedMainBtnRef = useRef<any>(null);
   const relatedYRef = useRef<number>(1000);
+  const rowYPositionsRef = useRef<Record<string, number>>({});
   const isComingFromBottomRef = useRef(false);
+  const isInMovieRowRef = useRef(false);
+  const isTrailerPlayingRef = useRef(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -71,14 +78,14 @@ export const MovieDetailScreen = () => {
                   setKwRelated(merged.slice(0, 18));
                 });
               }
-            }).catch(() => {});
+            }).catch(() => { });
 
           // Phim cùng thể loại
           const cat = item.category?.[0]?.slug;
           if (cat) {
             getByCategory(cat, { page: 1, limit: 16 })
               .then(r2 => setCatRelated(parseItems(r2).filter((m: any) => m.slug !== slug)))
-              .catch(() => {});
+              .catch(() => { });
           }
 
           // Phim cùng quốc gia
@@ -86,7 +93,7 @@ export const MovieDetailScreen = () => {
           if (country) {
             getByCountry(country, { page: 1, limit: 16 })
               .then(rC => setCountryRelated(parseItems(rC).filter((m: any) => m.slug !== slug)))
-              .catch(() => {});
+              .catch(() => { });
           }
         }
       })
@@ -117,6 +124,12 @@ export const MovieDetailScreen = () => {
     }
   }, [activeTab, movie]);
 
+  // Node handle is now set instantly by MovieDetailTabs via onActiveTabNodeHandle
+  useEffect(() => {
+    if (movie && playBtnRef.current && heroBannerFocusNodeRef) {
+      heroBannerFocusNodeRef.current = playBtnRef.current;
+    }
+  }, [movie, heroBannerFocusNodeRef]);
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -168,13 +181,22 @@ export const MovieDetailScreen = () => {
                   </View>
                 )}
               </View>
-
               <TouchableHighlight
                 onFocus={() => setFocusedBtn('desc')}
                 onBlur={() => setFocusedBtn(null)}
                 onPress={() => setShowDescModal(true)}
+                nextFocusUp={activeSidebarNodeRef?.current ? findNodeHandle(activeSidebarNodeRef.current) : undefined}
+                nextFocusDown={lastFocusedMainBtnRef.current ? findNodeHandle(lastFocusedMainBtnRef.current) : (playBtnRef.current ? findNodeHandle(playBtnRef.current) : undefined)}
                 underlayColor="transparent"
-                style={{ padding: 4, marginLeft: -4, borderRadius: 4, backgroundColor: focusedBtn === 'desc' ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                style={{
+                  padding: 4,
+                  marginLeft: -4,
+                  marginBottom: 16,
+                  borderRadius: 4,
+                  backgroundColor: focusedBtn === 'desc' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  borderWidth: focusedBtn === 'desc' ? 2 : 0,
+                  borderColor: focusedBtn === 'desc' ? '#fff' : 'transparent'
+                }}
               >
                 <Text style={styles.descText}>{shortDesc}</Text>
               </TouchableHighlight>
@@ -190,6 +212,8 @@ export const MovieDetailScreen = () => {
                   onFocus={() => {
                     isComingFromBottomRef.current = false;
                     setFocusedBtn('play');
+                    lastFocusedMainBtnRef.current = playBtnRef.current;
+                    if (heroBannerFocusNodeRef) heroBannerFocusNodeRef.current = playBtnRef.current;
                     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
                   }}
                   onBlur={() => setFocusedBtn(null)}
@@ -213,6 +237,8 @@ export const MovieDetailScreen = () => {
                     onFocus={() => {
                       isComingFromBottomRef.current = false;
                       setFocusedBtn('episodes');
+                      lastFocusedMainBtnRef.current = episodesBtnRef.current;
+                      if (heroBannerFocusNodeRef) heroBannerFocusNodeRef.current = episodesBtnRef.current;
                       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
                     }}
                     onBlur={() => setFocusedBtn(null)}
@@ -236,6 +262,8 @@ export const MovieDetailScreen = () => {
                   onFocus={() => {
                     isComingFromBottomRef.current = false;
                     setFocusedBtn('save');
+                    lastFocusedMainBtnRef.current = saveBtnRef.current;
+                    if (heroBannerFocusNodeRef) heroBannerFocusNodeRef.current = saveBtnRef.current;
                     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
                   }}
                   onBlur={() => setFocusedBtn(null)}
@@ -255,7 +283,7 @@ export const MovieDetailScreen = () => {
           {/* Khoảng trống phía trên Tab đã bị xóa vì Tab dùng absolute */}
 
           {/* TABS (BÊN TRONG HERO SECTION ĐỂ ĐƯỢC CHÈN LÊN ẢNH NỀN) */}
-          <TVFocusGuideView ref={tabsContainerRef} style={{ position: 'absolute', bottom: 10, width: '100%', alignItems: 'center' }}>
+          <TVFocusGuideView ref={tabsContainerRef} autoFocus style={{ position: 'absolute', bottom: 10, width: '100%', alignItems: 'center' }}>
             <MovieDetailTabs
               nextFocusUpNode={playBtnRef.current ? findNodeHandle(playBtnRef.current) : null}
               tabs={[
@@ -267,9 +295,22 @@ export const MovieDetailScreen = () => {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               activeTabRef={activeTabRef}
+              onActiveTabNodeHandle={(handle) => {
+                if (handle !== activeTabNodeHandle) {
+                  setActiveTabNodeHandle(handle);
+                }
+              }}
               onTabFocus={() => {
-                if (!isComingFromBottomRef.current) {
-                  scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true });
+                const cameFromRow = isInMovieRowRef.current;
+                isInMovieRowRef.current = false;
+                if (cameFromRow || !isComingFromBottomRef.current) {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true });
+                  }, 150);
+                } else if (activeTab === 'trailer' && isTrailerPlayingRef.current) {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true });
+                  }, 150);
                 }
               }}
             />
@@ -278,93 +319,123 @@ export const MovieDetailScreen = () => {
 
         {/* NỘI DUNG TABS */}
         <TVFocusGuideView style={{ width: '100%', alignItems: 'center', paddingTop: 10 }}>
-
-          <View style={{ width: '100%', minHeight: 400 }}>
+          <View style={{ width: '100%' }}>
             {activeTab === 'info' && (
-              <TouchableHighlight 
-                underlayColor="transparent" 
-                activeOpacity={1} 
-                nextFocusUp={playBtnRef.current ? findNodeHandle(playBtnRef.current) : undefined}
-                onFocus={() => {
-                  isComingFromBottomRef.current = true;
-                  scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true });
-                }}
-                style={{ width: '100%', height: '100%' }}
-              >
-                <View><MovieDetailInfo movie={movie} /></View>
-              </TouchableHighlight>
+              <View style={{ width: '100%', paddingBottom: 20 }}>
+                <MovieDetailInfo movie={movie} />
+              </View>
             )}
-            
+
             {activeTab === 'cast' && (
-              <TouchableHighlight 
-                underlayColor="transparent" 
-                activeOpacity={1} 
-                nextFocusUp={playBtnRef.current ? findNodeHandle(playBtnRef.current) : undefined}
-                onFocus={() => {
-                  isComingFromBottomRef.current = true;
-                  scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true });
-                }}
-                style={{ width: '100%', height: '100%' }}
-              >
-                <View><MovieDetailCast cast={cast} /></View>
-              </TouchableHighlight>
+              <View style={{ width: '100%', paddingBottom: 20 }}>
+                <MovieDetailCast cast={cast} />
+              </View>
             )}
 
             {activeTab === 'trailer' && (
-              <MovieDetailTrailer 
-                trailerUrl={movie.trailer_url} 
-                nextFocusUpNode={playBtnRef.current ? findNodeHandle(playBtnRef.current) : undefined}
-                onPlay={() => setTimeout(() => scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.92, animated: true }), 100)}
-                onExitVideo={() => scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true })}
-                onFocusContent={() => {
-                  isComingFromBottomRef.current = true;
+              <MovieDetailTrailer
+                trailerUrl={movie.trailer_url}
+                nextFocusUpNode={activeTabNodeHandle || undefined}
+                onPlay={() => {
+                  isTrailerPlayingRef.current = true;
+                  setTimeout(() => scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.92, animated: true }), 250);
+                }}
+                onExitVideo={() => {
+                  isTrailerPlayingRef.current = false;
                   scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true });
+                }}
+                onFocusContent={() => {
+                  if (isInMovieRowRef.current || isTrailerPlayingRef.current) {
+                    setTimeout(() => {
+                      const targetY = isTrailerPlayingRef.current 
+                        ? Dimensions.get('window').height * 0.92 
+                        : Dimensions.get('window').height * 0.78;
+                      scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+                    }, 150);
+                    isInMovieRowRef.current = false;
+                  }
+                  isComingFromBottomRef.current = true;
                 }}
               />
             )}
-            
+
             {activeTab === 'gallery' && (
-              <MovieDetailGallery 
-                images={images} 
-                nextFocusUpNode={playBtnRef.current ? findNodeHandle(playBtnRef.current) : undefined}
+              <MovieDetailGallery
+                images={images}
+                nextFocusUpNode={activeTabNodeHandle || undefined}
                 onImagePress={(uri: string) => setLightboxImage(uri)}
                 onFocusContent={() => {
+                  if (isInMovieRowRef.current) {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true });
+                    }, 150);
+                    isInMovieRowRef.current = false;
+                  }
                   isComingFromBottomRef.current = true;
-                  scrollViewRef.current?.scrollTo({ y: Dimensions.get('window').height * 0.78, animated: true });
                 }}
               />
             )}
           </View>
         </TVFocusGuideView>
-
         {/* CÁC DANH SÁCH PHIM LIÊN QUAN GIỐNG NETFLIX */}
-        <View 
+        <View
           style={{ marginTop: 40, paddingBottom: 60 }}
           onLayout={(e) => relatedYRef.current = e.nativeEvent.layout.y}
         >
-          {kwRelated.length > 0 && (
-            <MovieRow 
-              title="Phim liên quan" 
-              items={kwRelated} 
-              onFocusRow={() => scrollViewRef.current?.scrollTo({ y: relatedYRef.current - 50, animated: true })}
-            />
-          )}
-          
-          {catRelated.length > 0 && movie?.category?.[0]?.name && (
-            <MovieRow 
-              title={`Cùng thể loại · ${movie.category[0].name}`} 
-              items={catRelated} 
-              onFocusRow={() => scrollViewRef.current?.scrollTo({ y: relatedYRef.current + 300, animated: true })}
-            />
-          )}
-          
-          {countryRelated.length > 0 && movie?.country?.[0]?.name && (
-            <MovieRow 
-              title={`Cùng quốc gia · ${movie.country[0].name}`} 
-              items={countryRelated} 
-              onFocusRow={() => scrollViewRef.current?.scrollTo({ y: relatedYRef.current + 650, animated: true })}
-            />
-          )}
+          {(() => {
+            const needsExplicitFocusUp =
+              activeTab === 'info' ||
+              activeTab === 'cast' ||
+              (activeTab === 'trailer' && !movie?.trailer_url) ||
+              (activeTab === 'gallery' && (!images || images.length === 0));
+            const focusUpNode = needsExplicitFocusUp ? activeTabNodeHandle : undefined;
+
+            return (
+              <>
+                {kwRelated.length > 0 && (
+                  <MovieRow
+                    title="Phim liên quan"
+                    items={kwRelated}
+                    nextFocusUpNode={focusUpNode}
+                    onLayout={(e) => rowYPositionsRef.current['kw'] = e.nativeEvent.layout.y}
+                    onFocusRow={() => {
+                      isInMovieRowRef.current = true;
+                    }}
+                  />
+                )}
+
+                {catRelated.length > 0 && movie?.category?.[0]?.name && (
+                  <MovieRow
+                    title={`Cùng thể loại · ${movie.category[0].name}`}
+                    items={catRelated}
+                    nextFocusUpNode={kwRelated.length > 0 ? undefined : focusUpNode}
+                    onLayout={(e) => rowYPositionsRef.current['cat'] = e.nativeEvent.layout.y}
+                    onFocusRow={() => {
+                      isInMovieRowRef.current = true;
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollTo({ y: Math.max(0, relatedYRef.current + (rowYPositionsRef.current['cat'] || 0) - 80), animated: true });
+                      }, 100);
+                    }}
+                  />
+                )}
+
+                {countryRelated.length > 0 && movie?.country?.[0]?.name && (
+                  <MovieRow
+                    title={`Cùng quốc gia · ${movie.country[0].name}`}
+                    items={countryRelated}
+                    nextFocusUpNode={(kwRelated.length > 0 || catRelated.length > 0) ? undefined : focusUpNode}
+                    onLayout={(e) => rowYPositionsRef.current['country'] = e.nativeEvent.layout.y}
+                    onFocusRow={() => {
+                      isInMovieRowRef.current = true;
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollTo({ y: Math.max(0, relatedYRef.current + (rowYPositionsRef.current['country'] || 0) - 80), animated: true });
+                      }, 100);
+                    }}
+                  />
+                )}
+              </>
+            );
+          })()}
         </View>
 
       </ScrollView>
@@ -389,17 +460,22 @@ export const MovieDetailScreen = () => {
         </View>
       </Modal>
 
-      {/* MODAL CHỌN TẬP */}
-      <Modal visible={showEpisodes} transparent animationType="fade">
-        <View style={styles.epBoxOverlay}>
-          <TVFocusGuideView autoFocus style={styles.epBox}>
-            <Text style={styles.epBoxTitle}>Chọn tập</Text>
-            <FlatList
-              data={episodes}
-              keyExtractor={(item) => item.slug}
-              renderItem={({ item, index }) => (
-                <EpisodeButton item={item} onPress={() => { setShowEpisodes(false); /* Play */ }} />
-              )}
+      {/* MODAL CHỌN TẬP MỚI (NETFLIX STYLE) */}
+      <Modal visible={showEpisodes} transparent animationType="fade" onRequestClose={() => setShowEpisodes(false)}>
+        <View style={[styles.epBoxOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
+          <TVFocusGuideView autoFocus style={[styles.epBox, { width: '85%', height: '85%', padding: 30 }]}>
+            <EpisodeSelectionUI
+              servers={movie.episodes || []}
+              playingEpisodeSlug={undefined}
+              onPlayEpisode={(ep, serverName) => {
+                setShowEpisodes(false);
+                console.log('Play', ep.slug, 'from', serverName);
+              }}
+              onPlayMain={() => {
+                setShowEpisodes(false);
+                console.log('Play Main');
+              }}
+              onClose={() => setShowEpisodes(false)}
             />
           </TVFocusGuideView>
         </View>
@@ -410,10 +486,10 @@ export const MovieDetailScreen = () => {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' }}>
           <TVFocusGuideView autoFocus style={{ width: '90%', height: '90%', justifyContent: 'center', alignItems: 'center' }}>
             <Image source={{ uri: lightboxImage || '' }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
-            <TouchableHighlight 
-              hasTVPreferredFocus 
-              style={{ marginTop: 20, paddingHorizontal: 40, paddingVertical: 15, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 }} 
-              onPress={() => setLightboxImage(null)} 
+            <TouchableHighlight
+              hasTVPreferredFocus
+              style={{ marginTop: 20, paddingHorizontal: 40, paddingVertical: 15, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 }}
+              onPress={() => setLightboxImage(null)}
               underlayColor="#E50914"
             >
               <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>ĐÓNG</Text>
@@ -425,18 +501,3 @@ export const MovieDetailScreen = () => {
   );
 };
 
-// Component con cho từng tập trong modal
-const EpisodeButton = ({ item, onPress }: { item: any, onPress: () => void }) => {
-  const [focused, setFocused] = useState(false);
-  return (
-    <TouchableHighlight
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      onPress={onPress}
-      style={[styles.epBtn, focused && styles.epBtnFocused]}
-      underlayColor="#e50914"
-    >
-      <Text style={[styles.epBtnText, focused && styles.epBtnTextFocused]}>{item.name}</Text>
-    </TouchableHighlight>
-  );
-};

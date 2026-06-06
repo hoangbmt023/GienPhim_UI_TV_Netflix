@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableHighlight, Image, findNodeHandle } from 'react-native';
 import { theme } from '../../constants/theme';
 import { styles } from './Sidebar.styles';
@@ -24,6 +24,15 @@ const TOP_GRADIENT = Array(20).fill(0).map((_, i) => {
 export const Sidebar = ({ activeNodeRef }: { activeNodeRef?: React.MutableRefObject<any> }) => {
   const [focusedItem, setFocusedItem] = useState<string | null>(null);
   const { currentRoute, heroBannerFocusNodeRef } = useTVNavigation();
+  const menuRefs = useRef<Record<string, any>>({});
+
+  useEffect(() => {
+    if (currentRoute === 'MovieDetail') {
+      if (activeNodeRef && menuRefs.current['home']) {
+        activeNodeRef.current = menuRefs.current['home'];
+      }
+    }
+  }, [currentRoute]);
 
   const getHeroBannerNode = () => {
     if (heroBannerFocusNodeRef?.current) {
@@ -70,11 +79,17 @@ export const Sidebar = ({ activeNodeRef }: { activeNodeRef?: React.MutableRefObj
             <TouchableHighlightTV
               key={item.id}
               ref={(el: any) => {
+                menuRefs.current[item.id] = el;
                 if (activeItem === item.id && activeNodeRef) {
                   activeNodeRef.current = el; // Lưu reference của item đang active
                 }
               }}
-              onFocus={() => setFocusedItem(item.id)}
+              onFocus={() => {
+                setFocusedItem(item.id);
+                if (activeNodeRef && menuRefs.current[item.id]) {
+                  activeNodeRef.current = menuRefs.current[item.id];
+                }
+              }}
               onBlur={() => setFocusedItem(null)}
               onPress={() => {
                 // Sử dụng navigationRef vì Sidebar nằm ngoài Stack.Navigator

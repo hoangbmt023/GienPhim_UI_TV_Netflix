@@ -60,10 +60,5 @@ export const styles = StyleSheet.create({
   },
   netflixTextFocused: {
     color: '#141414',
-  },
-  hint: {
-    color: '#666',
-    marginTop: 24,
-    fontSize: 14,
   }
 });

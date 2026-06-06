@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableHighlight, Image, Animated, useWindowDimensions, StyleSheet, FlatList, TVFocusGuideView } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TouchableHighlight, Image, Animated, useWindowDimensions, StyleSheet, FlatList, TVFocusGuideView, findNodeHandle } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../constants/theme';
 import { imgUrl } from '../../services/ophimApi';
@@ -12,6 +12,7 @@ interface MovieRowProps {
   onFocusRow?: () => void;
   onLayout?: (e: any) => void;
   isTop10?: boolean;
+  nextFocusUpNode?: number | null;
 }
 
 // Khai báo mảng gradient tĩnh bên ngoài component để tránh lỗi "Expected static flag" của React 18 / Fabric
@@ -20,7 +21,7 @@ const GRADIENT_LAYERS = Array.from({ length: 20 }).map((_, i) => {
   return <View key={i} style={{ flex: 1, backgroundColor: `rgba(0,0,0,${opacity})` }} />;
 });
 
-export const MovieRow = ({ title, items, loading, onFocusRow, onLayout, isTop10 }: MovieRowProps) => {
+export const MovieRow = ({ title, items, loading, onFocusRow, onLayout, isTop10, nextFocusUpNode }: MovieRowProps) => {
   if (loading) {
     return (
       <View style={styles.container} onLayout={onLayout}>
@@ -65,7 +66,9 @@ export const MovieRow = ({ title, items, loading, onFocusRow, onLayout, isTop10 
               item={item}
               index={index}
               isTop10={isTop10}
+              totalItems={items.length}
               onFocusChange={() => handleFocusItem(index)}
+              nextFocusUpNode={nextFocusUpNode}
             />
           )}
           showsHorizontalScrollIndicator={false}
@@ -88,10 +91,20 @@ const STROKE_OFFSETS: [number, number][] = [
   [-3, -1], [3, 1], [-1, -3], [1, 3],
 ];
 
-const MovieCard = React.memo(({ item, index, isTop10, onFocusChange }: { item: any, index: number, isTop10?: boolean, onFocusChange: () => void }) => {
+const MovieCard = React.memo(({ item, index, isTop10, totalItems, onFocusChange, nextFocusUpNode }: { item: any, index: number, isTop10?: boolean, totalItems: number, onFocusChange: () => void, nextFocusUpNode?: number | null }) => {
   const [focused, setFocused] = useState(false);
   const navigation = useNavigation<any>();
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const cardRef = useRef<any>(null);
+  const [nodeHandle, setNodeHandle] = useState<number | null>(null);
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (cardRef.current) {
+        setNodeHandle(findNodeHandle(cardRef.current));
+      }
+    }, 100);
+  }, []);
 
   const handleFocus = () => {
     setFocused(true);
@@ -116,12 +129,16 @@ const MovieCard = React.memo(({ item, index, isTop10, onFocusChange }: { item: a
     // zIndex cao khi focus → card này đè lên số của card bên cạnh
     <View style={{ overflow: 'visible', zIndex: focused ? 10 : 1 }}>
       <TouchableHighlight
+        ref={cardRef}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onPress={() => navigation.navigate('MovieDetail', { slug: item.slug })}
         activeOpacity={1}
         underlayColor="transparent"
         style={{ marginRight: theme.spacing.m }}
+        nextFocusUp={nextFocusUpNode}
+        nextFocusLeft={index === 0 ? (nodeHandle || undefined) : undefined}
+        nextFocusRight={index === totalItems - 1 ? (nodeHandle || undefined) : undefined}
       >
         {/* Animated.View phải overflow visible để số nhô ra ngoài */}
         <Animated.View style={[

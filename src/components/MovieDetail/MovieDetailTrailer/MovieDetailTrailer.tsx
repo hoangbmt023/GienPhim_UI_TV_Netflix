@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, TouchableHighlight, TVFocusGuideView, Image, BackHandler } from 'react-native';
+import { View, Text, TouchableHighlight, TVFocusGuideView, Image, BackHandler, findNodeHandle } from 'react-native';
 import { styles } from './MovieDetailTrailer.styles';
 import { WebView } from 'react-native-webview';
 
@@ -21,9 +21,26 @@ export const MovieDetailTrailer = ({ trailerUrl, onPlay, onExitVideo, nextFocusU
   const thumbUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
   
   const webViewRef = useRef<WebView>(null);
+  const rewindRef = useRef<any>(null);
+  const playPauseRef = useRef<any>(null);
+  const forwardRef = useRef<any>(null);
+  const [rewindNode, setRewindNode] = useState<number | null>(null);
+  const [playPauseNode, setPlayPauseNode] = useState<number | null>(null);
+  const [forwardNode, setForwardNode] = useState<number | null>(null);
+
   const [isVideoMode, setIsVideoMode] = useState(false);
   const [playing, setPlaying] = useState(true);
   const [focusedBtn, setFocusedBtn] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isVideoMode) {
+      setTimeout(() => {
+        if (rewindRef.current) setRewindNode(findNodeHandle(rewindRef.current));
+        if (playPauseRef.current) setPlayPauseNode(findNodeHandle(playPauseRef.current));
+        if (forwardRef.current) setForwardNode(findNodeHandle(forwardRef.current));
+      }, 100);
+    }
+  }, [isVideoMode]);
 
   useEffect(() => {
     if (isVideoMode) {
@@ -58,10 +75,13 @@ export const MovieDetailTrailer = ({ trailerUrl, onPlay, onExitVideo, nextFocusU
     }
   };
 
-  const renderNetflixButton = (id: string, iconUrl: string, label: string, onPress: () => void) => {
+  const renderNetflixButton = (id: string, iconUrl: string, label: string, onPress: () => void, btnRef: any, nextLeft?: number | null, nextRight?: number | null) => {
     const isFocused = focusedBtn === id;
     return (
       <TouchableHighlight
+        ref={btnRef}
+        nextFocusLeft={nextLeft}
+        nextFocusRight={nextRight}
         onFocus={() => {
           setFocusedBtn(id);
           if (onFocusContent) onFocusContent();
@@ -149,6 +169,7 @@ export const MovieDetailTrailer = ({ trailerUrl, onPlay, onExitVideo, nextFocusU
       {!isVideoMode ? (
         <TVFocusGuideView autoFocus style={{ width: '100%', alignItems: 'center' }}>
           <TouchableHighlight
+            nextFocusUp={nextFocusUpNode}
             onFocus={() => {
               setFocusedBtn('thumb');
               if (onFocusContent) onFocusContent();
@@ -205,11 +226,10 @@ export const MovieDetailTrailer = ({ trailerUrl, onPlay, onExitVideo, nextFocusU
           </View>
           
           <View style={styles.controlsRow}>
-            {renderNetflixButton('rewind', 'https://img.icons8.com/ios-filled/100/ffffff/replay-10.png', 'Lùi 10s', () => handleSeek(-10))}
-            {renderNetflixButton('play_pause', playing ? 'https://img.icons8.com/ios-filled/100/ffffff/pause--v1.png' : 'https://img.icons8.com/ios-filled/100/ffffff/play--v1.png', playing ? 'Tạm Dừng' : 'Phát Tiếp', togglePlay)}
-            {renderNetflixButton('forward', 'https://img.icons8.com/ios-filled/100/ffffff/forward-10.png', 'Tới 10s', () => handleSeek(10))}
+            {renderNetflixButton('rewind', 'https://img.icons8.com/ios-filled/100/ffffff/replay-10.png', 'Lùi 10s', () => handleSeek(-10), rewindRef, forwardNode, playPauseNode)}
+            {renderNetflixButton('play_pause', playing ? 'https://img.icons8.com/ios-filled/100/ffffff/pause--v1.png' : 'https://img.icons8.com/ios-filled/100/ffffff/play--v1.png', playing ? 'Tạm Dừng' : 'Phát Tiếp', togglePlay, playPauseRef, rewindNode, forwardNode)}
+            {renderNetflixButton('forward', 'https://img.icons8.com/ios-filled/100/ffffff/forward-10.png', 'Tới 10s', () => handleSeek(10), forwardRef, playPauseNode, rewindNode)}
           </View>
-          <Text style={styles.hint}>Nhấn BÊN TRÊN để về Menu • Nhấn BACK để thoát Video</Text>
         </TVFocusGuideView>
       )}
     </View>
