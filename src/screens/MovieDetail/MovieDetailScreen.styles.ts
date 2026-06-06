@@ -70,7 +70,6 @@ export const styles = StyleSheet.create({
     color: '#ccc',
     fontSize: 18,
     lineHeight: 28,
-    marginBottom: 20,
     width: '100%', // Mở rộng hết cỡ theo heroLeft
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 1, height: 1 },

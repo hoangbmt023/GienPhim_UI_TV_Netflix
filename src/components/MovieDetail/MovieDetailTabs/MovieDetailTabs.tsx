@@ -10,9 +10,10 @@ interface MovieDetailTabsProps {
   onTabPress?: (id: string) => void;
   nextFocusUpNode?: number | null;
   activeTabRef?: React.MutableRefObject<any>;
+  onActiveTabNodeHandle?: (handle: number | null) => void;
 }
 
-export const MovieDetailTabs = ({ tabs, activeTab, onTabChange, onTabFocus, onTabPress, nextFocusUpNode, activeTabRef }: MovieDetailTabsProps) => {
+export const MovieDetailTabs = ({ tabs, activeTab, onTabChange, onTabFocus, onTabPress, nextFocusUpNode, activeTabRef, onActiveTabNodeHandle }: MovieDetailTabsProps) => {
   const [focusedTabId, setFocusedTabId] = useState<string | null>(null);
   const tabRefs = useRef<any[]>([]);
 
@@ -27,10 +28,15 @@ export const MovieDetailTabs = ({ tabs, activeTab, onTabChange, onTabFocus, onTa
             key={tab.id} 
             ref={(el: any) => {
               tabRefs.current[index] = el;
-              if (isActive && activeTabRef) {
-                activeTabRef.current = el;
+              if (isActive) {
+                if (activeTabRef) activeTabRef.current = el;
+                if (el && onActiveTabNodeHandle) {
+                  onActiveTabNodeHandle(findNodeHandle(el));
+                }
               }
             }}
+            nextFocusLeft={index === 0 ? findNodeHandle(tabRefs.current[tabs.length - 1]) : undefined}
+            nextFocusRight={index === tabs.length - 1 ? findNodeHandle(tabRefs.current[0]) : undefined}
             nextFocusUp={nextFocusUpNode}
             label={tab.label} 
             isActive={isActive} 
