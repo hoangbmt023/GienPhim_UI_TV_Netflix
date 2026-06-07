@@ -147,6 +147,11 @@ export const MovieDetailScreen = () => {
   // Xử lý danh sách tập
   const firstServer = movie.episodes?.[0];
   const episodes = firstServer?.server_data || [];
+  
+  // Kiểm tra xem phim có tập hợp lệ hay không (khác rỗng)
+  const allEpisodes = movie.episodes?.flatMap((s: any) => s.server_data) || [];
+  const validEpisodes = allEpisodes.filter((ep: any) => ep.name && ep.name.trim() !== '');
+  const hasValidEpisodes = validEpisodes.length > 0;
 
   return (
     <View style={styles.container}>
@@ -227,8 +232,8 @@ export const MovieDetailScreen = () => {
                   </View>
                 </TouchableHighlight>
 
-                {/* Nút CHỌN TẬP */}
-                {episodes.length > 0 && (
+                {/* Nút CHỌN TẬP / THÔNG BÁO TRAILER */}
+                {hasValidEpisodes ? (
                   <TouchableHighlight
                     ref={episodesBtnRef}
                     nextFocusDown={activeTabRef.current ? findNodeHandle(activeTabRef.current) : undefined}
@@ -251,6 +256,10 @@ export const MovieDetailScreen = () => {
                       <Text style={styles.btnText}>CHỌN TẬP</Text>
                     </View>
                   </TouchableHighlight>
+                ) : (
+                  <View style={[styles.btn, { backgroundColor: 'rgba(50,50,50,0.5)', opacity: 0.8 }]}>
+                    <Text style={[styles.btnText, { color: '#ccc' }]}>CHƯA CÓ TẬP</Text>
+                  </View>
                 )}
 
                 {/* Nút LƯU PHIM */}
@@ -400,6 +409,9 @@ export const MovieDetailScreen = () => {
                     onLayout={(e) => rowYPositionsRef.current['kw'] = e.nativeEvent.layout.y}
                     onFocusRow={() => {
                       isInMovieRowRef.current = true;
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollTo({ y: Math.max(0, relatedYRef.current + (rowYPositionsRef.current['kw'] || 0) - 80), animated: true });
+                      }, 100);
                     }}
                   />
                 )}
@@ -462,11 +474,15 @@ export const MovieDetailScreen = () => {
 
       {/* MODAL CHỌN TẬP MỚI (NETFLIX STYLE) */}
       <Modal visible={showEpisodes} transparent animationType="fade" onRequestClose={() => setShowEpisodes(false)}>
-        <View style={[styles.epBoxOverlay, { justifyContent: 'center', alignItems: 'center' }]}>
-          <TVFocusGuideView autoFocus style={[styles.epBox, { width: '85%', height: '85%', padding: 30 }]}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.98)' }}>
+          <TVFocusGuideView autoFocus style={{ flex: 1 }}>
             <EpisodeSelectionUI
               servers={movie.episodes || []}
               playingEpisodeSlug={undefined}
+              movieTitle={movie.name}
+              posterUrl={backdrop}
+              currentEpisodeInfo={movie.episode_current}
+              totalEpisodes={movie.episode_total || (movie.episodes?.[0]?.server_data?.length || '?')}
               onPlayEpisode={(ep, serverName) => {
                 setShowEpisodes(false);
                 console.log('Play', ep.slug, 'from', serverName);
