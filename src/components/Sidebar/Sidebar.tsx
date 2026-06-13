@@ -1,0 +1,173 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, TouchableHighlight, Image, findNodeHandle } from 'react-native';
+import { theme } from '../../constants/theme';
+import { styles } from './Sidebar.styles';
+import { useTVNavigation, navigationRef } from '../../context/NavigationContext';
+
+let _lastSidebarItem = 'home';
+
+const MENU_ITEMS = [
+  { id: 'home', label: 'Trang chủ' },
+  { id: 'movies', label: 'Phim lẻ' },
+  { id: 'series', label: 'Phim bộ' },
+  { id: 'animation', label: 'Hoạt hình' },
+];
+
+const TouchableHighlightTV = TouchableHighlight as any;
+
+const TOP_GRADIENT = Array(20).fill(0).map((_, i) => {
+  // Gradient từ đen mờ (top) sang trong suốt (bottom)
+  const opacity = Math.pow(1 - (i / 19), 1.5) * 0.95;
+  return <View key={i} style={{ flex: 1, backgroundColor: `rgba(20,20,20,${opacity})` }} />;
+});
+
+export const Sidebar = ({ activeNodeRef }: { activeNodeRef?: React.MutableRefObject<any> }) => {
+  const [focusedItem, setFocusedItem] = useState<string | null>(null);
+  const { currentRoute, heroBannerFocusNodeRef } = useTVNavigation();
+  const menuRefs = useRef<Record<string, any>>({});
+
+  useEffect(() => {
+    if (currentRoute === 'MovieDetail') {
+      if (activeNodeRef && menuRefs.current['home']) {
+        activeNodeRef.current = menuRefs.current['home'];
+      }
+    }
+  }, [currentRoute]);
+
+  const getHeroBannerNode = () => {
+    if (heroBannerFocusNodeRef?.current) {
+      return findNodeHandle(heroBannerFocusNodeRef.current);
+    }
+    return null;
+  };
+
+  // Module-level variable to keep track of the last active main menu item
+  // so that navigating to MovieDetail doesn't reset the active state to 'home'.
+  const getActiveItem = () => {
+    if (currentRoute === 'MovieDetail') return null; // NOTHING LIT!
+    switch (currentRoute) {
+      case 'Home': return 'home';
+      case 'Movies': return 'movies';
+      case 'Series': return 'series';
+      case 'Anime': return 'animation';
+      default: 
+        return _lastSidebarItem;
+    }
+  };
+
+  const activeItem = getActiveItem();
+  if (activeItem && ['home', 'movies', 'series', 'animation'].includes(activeItem)) {
+    _lastSidebarItem = activeItem;
+  }
+
+  return (
+    <View style={styles.container}>
+      {/* Lớp gradient đen mờ đè lên mọi thứ cuộn bên dưới để chữ luôn dễ đọc */}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 140, pointerEvents: 'none' }}>
+        <>{TOP_GRADIENT}</>
+      </View>
+
+      {/* LEFT: GIENPHIM Logo */}
+      <View style={styles.leftSection}>
+        <Text style={styles.brandText}>GIENPHIM</Text>
+      </View>
+
+      {/* CENTER: Navigation Menu */}
+      <View style={styles.centerSection}>
+        {MENU_ITEMS.map((item) => {
+          return (
+            <TouchableHighlightTV
+              key={item.id}
+              ref={(el: any) => {
+                menuRefs.current[item.id] = el;
+                if (activeItem === item.id && activeNodeRef) {
+                  activeNodeRef.current = el; // Lưu reference của item đang active
+                }
+              }}
+              onFocus={() => {
+                setFocusedItem(item.id);
+                if (activeNodeRef && menuRefs.current[item.id]) {
+                  activeNodeRef.current = menuRefs.current[item.id];
+                }
+              }}
+              onBlur={() => setFocusedItem(null)}
+              onPress={() => {
+                // Sử dụng navigationRef vì Sidebar nằm ngoài Stack.Navigator
+                const routeName = item.id === 'movies' ? 'Movies' : 
+                                  item.id === 'series' ? 'Series' : 
+                                  item.id === 'animation' ? 'Anime' : 'Home';
+                if (navigationRef.isReady()) {
+                  navigationRef.navigate(routeName);
+                }
+              }}
+              style={[
+                styles.menuItem,
+                activeItem === item.id && styles.menuItemActive,
+                focusedItem === item.id && styles.menuItemFocused
+              ]}
+              underlayColor="transparent"
+              activeOpacity={1}
+              nextFocusDown={getHeroBannerNode() ?? undefined}
+            >
+              <Text style={[
+                styles.label,
+                item.isPill && styles.pillLabel,
+                activeItem === item.id && !item.isPill && styles.textActive,
+                focusedItem === item.id && styles.textFocused
+              ]}>
+                {item.label}
+              </Text>
+            </TouchableHighlightTV>
+          );
+        })}
+      </View>
+
+      {/* RIGHT: Search + Avatar */}
+      <View style={styles.rightSection}>
+        {/* Nút Tìm Kiếm (Search Icon) */}
+        <TouchableHighlightTV
+          onFocus={() => setFocusedItem('search')}
+          onBlur={() => setFocusedItem(null)}
+          onPress={() => { }}
+          style={[
+            styles.menuItem,
+            styles.searchItem,
+            focusedItem === 'search' && styles.menuItemFocused
+          ]}
+          underlayColor="transparent"
+          activeOpacity={1}
+        >
+          <Image
+            source={{ uri: 'https://img.icons8.com/ios-filled/100/ffffff/search--v1.png' }}
+            style={[
+              styles.searchIcon,
+              focusedItem === 'search' && { tintColor: '#fff' }
+            ]}
+          />
+        </TouchableHighlightTV>
+
+        {/* Avatar */}
+        <TouchableHighlightTV
+          onFocus={() => setFocusedItem('avatar')}
+          onBlur={() => setFocusedItem(null)}
+          onPress={() => { }}
+          style={[
+            styles.avatarWrapper,
+            focusedItem === 'avatar' && styles.menuItemFocused
+          ]}
+          underlayColor="transparent"
+          activeOpacity={1}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image
+              source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png' }}
+              style={styles.avatar}
+            />
+            <Text style={styles.arrowDown}>▼</Text>
+          </View>
+        </TouchableHighlightTV>
+      </View>
+
+    </View>
+  );
+};
